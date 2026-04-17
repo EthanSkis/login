@@ -53,7 +53,6 @@
     position: relative;
   }
 
-  /* Background: subtle grid + radial glow + grain */
   body::before {
     content: "";
     position: fixed;
@@ -101,7 +100,6 @@
     margin: 0 auto;
   }
 
-  /* Top bar */
   header.bar {
     display: grid;
     grid-template-columns: 1fr auto;
@@ -185,7 +183,6 @@
     50%      { opacity: 0.4; transform: scale(0.85); }
   }
 
-  /* Main */
   main {
     flex: 1;
     display: grid;
@@ -225,7 +222,6 @@
     100% { transform: translate(-50%, -48%) translateX(10px);  opacity: 0.03; }
   }
 
-  /* Card */
   .card {
     position: relative;
     z-index: 1;
@@ -311,7 +307,6 @@
     color: var(--ink);
   }
 
-  /* Form */
   .form {
     display: flex;
     flex-direction: column;
@@ -339,6 +334,7 @@
     text-decoration: none;
     letter-spacing: 0.18em;
     transition: color 0.2s var(--ease);
+    cursor: pointer;
   }
 
   .field label a:hover { color: var(--accent); }
@@ -395,7 +391,6 @@
 
   .input-wrap .toggle:hover { color: var(--accent); }
 
-  /* Remember row */
   .row {
     display: flex;
     align-items: center;
@@ -452,7 +447,6 @@
     outline-offset: 2px;
   }
 
-  /* Submit */
   .submit {
     appearance: none;
     border: 0;
@@ -491,7 +485,6 @@
     cursor: wait;
   }
 
-  /* Divider */
   .divider {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
@@ -511,7 +504,6 @@
     background: var(--rule);
   }
 
-  /* SSO buttons */
   .sso {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -547,9 +539,10 @@
     outline-offset: 2px;
   }
 
+  .sso button[disabled] { opacity: 0.6; cursor: wait; }
+
   .sso svg { display: block; }
 
-  /* Error / status message */
   .msg {
     margin-top: 14px;
     font-size: 10px;
@@ -575,7 +568,6 @@
   .msg.error::before { background: var(--danger); }
   .msg.ok::before    { background: var(--accent); }
 
-  /* Footer note */
   .foot-note {
     margin-top: 24px;
     text-align: center;
@@ -590,6 +582,7 @@
     text-decoration: none;
     position: relative;
     transition: color 0.2s var(--ease);
+    cursor: pointer;
   }
 
   .foot-note a::after {
@@ -608,7 +601,6 @@
     transform-origin: left;
   }
 
-  /* Footer */
   footer.foot {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
@@ -680,7 +672,6 @@
     white-space: nowrap; border: 0;
   }
 
-  /* Responsive */
   @media (max-width: 720px) {
     .shell { padding: 20px 24px; }
     main { padding: 40px 0 32px; }
@@ -780,7 +771,7 @@
           <div class="field">
             <label for="password">
               <span>Password</span>
-              <a href="#" id="forgotLink">Forgot?</a>
+              <a id="forgotLink">Forgot?</a>
             </label>
             <div class="input-wrap">
               <input
@@ -835,7 +826,7 @@
         </div>
 
         <div class="foot-note">
-          New here? <a href="#" id="signupLink">Request access</a>
+          New here? <a id="signupLink">Request access</a>
         </div>
       </section>
     </div>
@@ -856,69 +847,179 @@
 
 </div>
 
-<script>
-  (function () {
-    var form    = document.getElementById('loginForm');
-    var email   = document.getElementById('email');
-    var pw      = document.getElementById('password');
-    var toggle  = document.getElementById('togglePw');
-    var submit  = document.getElementById('submitBtn');
-    var msg     = document.getElementById('statusMsg');
+<script type="module">
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-    toggle.addEventListener('click', function () {
-      var isPw = pw.getAttribute('type') === 'password';
-      pw.setAttribute('type', isPw ? 'text' : 'password');
-      toggle.textContent = isPw ? 'Hide' : 'Show';
-      toggle.setAttribute('aria-label', isPw ? 'Hide password' : 'Show password');
-    });
+  const SUPABASE_URL      = 'https://qunobrixpnerocdntkio.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_P-w2YUP5j2PcUPJrqZ3Xxg_Wk0BqSRu';
+  const CLIENT_URL        = 'https://client.clearbot.io';
 
-    function setMsg(text, kind) {
-      msg.textContent = text || '';
-      msg.classList.remove('error', 'ok');
-      if (kind) msg.classList.add(kind);
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce',
+    },
+  });
+
+  const form       = document.getElementById('loginForm');
+  const emailEl    = document.getElementById('email');
+  const pwEl       = document.getElementById('password');
+  const toggle     = document.getElementById('togglePw');
+  const submit     = document.getElementById('submitBtn');
+  const submitText = submit.querySelector('span');
+  const msg        = document.getElementById('statusMsg');
+  const forgotLink = document.getElementById('forgotLink');
+  const signupLink = document.getElementById('signupLink');
+  const ssoButtons = document.querySelectorAll('.sso button');
+
+  function setMsg(text, kind) {
+    msg.textContent = text || '';
+    msg.classList.remove('error', 'ok');
+    if (kind) msg.classList.add(kind);
+  }
+
+  function goToClient() {
+    window.location.replace(CLIENT_URL);
+  }
+
+  (async () => {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) {
+      console.warn('Session check failed:', error.message);
+      return;
+    }
+    if (data && data.session) {
+      setMsg('Session active — redirecting…', 'ok');
+      goToClient();
+    }
+  })();
+
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      goToClient();
+    }
+  });
+
+  toggle.addEventListener('click', () => {
+    const isPw = pwEl.getAttribute('type') === 'password';
+    pwEl.setAttribute('type', isPw ? 'text' : 'password');
+    toggle.textContent = isPw ? 'Hide' : 'Show';
+    toggle.setAttribute('aria-label', isPw ? 'Hide password' : 'Show password');
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    setMsg('');
+
+    const email = emailEl.value.trim();
+    const password = pwEl.value;
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setMsg('Enter a valid email address.', 'error');
+      emailEl.focus();
+      return;
+    }
+    if (!password || password.length < 8) {
+      setMsg('Password must be at least 8 characters.', 'error');
+      pwEl.focus();
+      return;
     }
 
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      setMsg('');
+    submit.setAttribute('disabled', 'true');
+    submitText.textContent = 'Signing in…';
+    setMsg('Authenticating…');
 
-      if (!email.value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) {
-        setMsg('Enter a valid email address.', 'error');
-        email.focus();
-        return;
-      }
-      if (!pw.value || pw.value.length < 8) {
-        setMsg('Password must be at least 8 characters.', 'error');
-        pw.focus();
-        return;
-      }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-      submit.setAttribute('disabled', 'true');
-      submit.querySelector('span').textContent = 'Signing in…';
-      setMsg('Authenticating secure channel…');
+    if (error) {
+      submit.removeAttribute('disabled');
+      submitText.textContent = 'Sign In';
+      setMsg(error.message || 'Sign-in failed. Please try again.', 'error');
+      return;
+    }
 
-      setTimeout(function () {
-        submit.removeAttribute('disabled');
-        submit.querySelector('span').textContent = 'Sign In';
-        setMsg('Authentication service coming soon.', 'ok');
-      }, 1200);
-    });
+    if (data && data.session) {
+      setMsg('Signed in — redirecting…', 'ok');
+      goToClient();
+    } else {
+      submit.removeAttribute('disabled');
+      submitText.textContent = 'Sign In';
+      setMsg('Sign-in complete, but no session returned.', 'error');
+    }
+  });
 
-    document.querySelectorAll('.sso button').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        setMsg(btn.dataset.provider + ' sign-in coming soon.', 'ok');
+  ssoButtons.forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const provider = btn.dataset.provider;
+      ssoButtons.forEach(b => b.setAttribute('disabled', 'true'));
+      setMsg(`Redirecting to ${provider}…`);
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: CLIENT_URL,
+        },
       });
-    });
 
-    document.getElementById('forgotLink').addEventListener('click', function (e) {
-      e.preventDefault();
-      setMsg('Password reset coming soon.');
+      if (error) {
+        ssoButtons.forEach(b => b.removeAttribute('disabled'));
+        setMsg(error.message || `${provider} sign-in failed.`, 'error');
+      }
     });
-    document.getElementById('signupLink').addEventListener('click', function (e) {
-      e.preventDefault();
-      setMsg('Access requests coming soon.');
+  });
+
+  forgotLink.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const email = emailEl.value.trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setMsg('Enter your email first to reset your password.', 'error');
+      emailEl.focus();
+      return;
+    }
+    setMsg('Sending reset link…');
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: CLIENT_URL,
     });
-  })();
+    if (error) {
+      setMsg(error.message || 'Could not send reset link.', 'error');
+    } else {
+      setMsg('Check your inbox for a reset link.', 'ok');
+    }
+  });
+
+  signupLink.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const email = emailEl.value.trim();
+    const password = pwEl.value;
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setMsg('Enter an email to request access.', 'error');
+      emailEl.focus();
+      return;
+    }
+    if (!password || password.length < 8) {
+      setMsg('Choose a password (8+ chars) to request access.', 'error');
+      pwEl.focus();
+      return;
+    }
+    setMsg('Creating your account…');
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: CLIENT_URL },
+    });
+    if (error) {
+      setMsg(error.message || 'Could not create account.', 'error');
+      return;
+    }
+    if (data && data.session) {
+      setMsg('Account created — redirecting…', 'ok');
+      goToClient();
+    } else {
+      setMsg('Check your inbox to confirm your email.', 'ok');
+    }
+  });
 </script>
 
 </body>
