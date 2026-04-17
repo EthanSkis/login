@@ -990,6 +990,16 @@
     return m.includes('invalid login credentials') || m.includes('invalid credentials');
   }
 
+  async function lookupProviders(email) {
+    try {
+      const { data, error } = await supabase.rpc('auth_providers_for_email', { p_email: email });
+      if (error) return null;
+      return Array.isArray(data) ? data : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     setMsg('');
@@ -1019,8 +1029,14 @@
       submit.removeAttribute('disabled');
       submitText.textContent = 'Sign In';
       if (isInvalidCredentialsError(error)) {
-        setMsg('No password match for this email. If you signed up with GitHub, use “Continue with GitHub” below.', 'error');
-        if (githubBtn) githubBtn.classList.add('suggested');
+        const providers = await lookupProviders(email);
+        const githubOnly = providers && providers.includes('github') && !providers.includes('email');
+        if (githubOnly) {
+          setMsg('This account uses GitHub. Use “Continue with GitHub” below.', 'error');
+          if (githubBtn) githubBtn.classList.add('suggested');
+        } else {
+          setMsg('Incorrect email or password.', 'error');
+        }
       } else {
         setMsg(error.message || 'Sign-in failed. Please try again.', 'error');
       }
