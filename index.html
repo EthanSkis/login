@@ -818,7 +818,7 @@
         </div>
 
         <div class="foot-note">
-          New here? <a id="signupLink">Request access</a>
+          New here? <a id="signupLink" href="https://signup.clearbot.io">Request access</a>
         </div>
       </section>
     </div>
@@ -933,7 +933,6 @@
   const submitText = submit.querySelector('span');
   const msg        = document.getElementById('statusMsg');
   const forgotLink = document.getElementById('forgotLink');
-  const signupLink = document.getElementById('signupLink');
   const ssoButtons = document.querySelectorAll('.sso button');
 
   function setMsg(text, kind) {
@@ -1051,37 +1050,6 @@
     }
   });
 
-  signupLink.addEventListener('click', async (e) => {
-    e.preventDefault();
-    const email = emailEl.value.trim();
-    const password = pwEl.value;
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setMsg('Enter an email to request access.', 'error');
-      emailEl.focus();
-      return;
-    }
-    if (!password || password.length < 8) {
-      setMsg('Choose a password (8+ chars) to request access.', 'error');
-      pwEl.focus();
-      return;
-    }
-    setMsg('Creating your account…');
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { emailRedirectTo: CLIENT_URL },
-    });
-    if (error) {
-      setMsg(error.message || 'Could not create account.', 'error');
-      return;
-    }
-    if (data && data.session) {
-      setMsg('Account created — redirecting…', 'ok');
-      goToClient();
-    } else {
-      setMsg('Check your inbox to confirm your email.', 'ok');
-    }
-  });
 </script>
 
 </body>
