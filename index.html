@@ -542,6 +542,13 @@
 
   .sso button[disabled] { opacity: 0.6; cursor: wait; }
 
+  .sso button.suggested {
+    background: rgba(243, 241, 234, 0.06);
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent) inset;
+  }
+
   .sso svg { display: block; }
 
   .msg {
@@ -970,9 +977,23 @@
     toggle.setAttribute('aria-label', isPw ? 'Hide password' : 'Show password');
   });
 
+  const githubBtn = document.querySelector('.sso button[data-provider="github"]');
+
+  function clearGithubHint() {
+    if (githubBtn) githubBtn.classList.remove('suggested');
+  }
+
+  function isInvalidCredentialsError(error) {
+    if (!error) return false;
+    if (error.code === 'invalid_credentials') return true;
+    const m = (error.message || '').toLowerCase();
+    return m.includes('invalid login credentials') || m.includes('invalid credentials');
+  }
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     setMsg('');
+    clearGithubHint();
 
     const email = emailEl.value.trim();
     const password = pwEl.value;
@@ -997,7 +1018,12 @@
     if (error) {
       submit.removeAttribute('disabled');
       submitText.textContent = 'Sign In';
-      setMsg(error.message || 'Sign-in failed. Please try again.', 'error');
+      if (isInvalidCredentialsError(error)) {
+        setMsg('No password match for this email. If you signed up with GitHub, use “Continue with GitHub” below.', 'error');
+        if (githubBtn) githubBtn.classList.add('suggested');
+      } else {
+        setMsg(error.message || 'Sign-in failed. Please try again.', 'error');
+      }
       return;
     }
 
@@ -1011,9 +1037,13 @@
     }
   });
 
+  emailEl.addEventListener('input', clearGithubHint);
+  pwEl.addEventListener('input', clearGithubHint);
+
   ssoButtons.forEach((btn) => {
     btn.addEventListener('click', async () => {
       const provider = btn.dataset.provider;
+      clearGithubHint();
       ssoButtons.forEach(b => b.setAttribute('disabled', 'true'));
       setMsg(`Redirecting to ${provider}…`);
 
